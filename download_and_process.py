@@ -5,6 +5,7 @@ Downloader
 import os
 import json
 import cv2
+import tqdm
 
 
 def download(video_path, ytb_id, proxy=None):
@@ -26,9 +27,10 @@ def download(video_path, ytb_id, proxy=None):
             '--merge-output-format', 'mp4',
             "https://www.youtube.com/watch?v=" + ytb_id, "--output",
             video_path, "--external-downloader", "aria2c",
-            "--external-downloader-args", '"-x 16 -k 1M"'
+            "--external-downloader-args", '"-x 16 -k 1M"',
+            '>/dev/null 2>&1'
         ])
-        print(down_video)
+        # print(down_video)
         status = os.system(down_video)
         if status != 0:
             print(f"video not found: {ytb_id}")
@@ -96,27 +98,26 @@ def process_ffmpeg(raw_vid_path, save_folder, save_vid_name,
 def load_data(file_path):
     with open(file_path) as f:
         data_dict = json.load(f)
-
-    for key, val in data_dict['clips'].items():
-        save_name = key+".mp4"
-        ytb_id = val['ytb_id']
-        time = val['duration']['start_sec'], val['duration']['end_sec']
-
-        bbox = [val['bbox']['top'], val['bbox']['bottom'],
-                val['bbox']['left'], val['bbox']['right']]
-        yield ytb_id, save_name, time, bbox
+    return data_dict
 
 
 if __name__ == '__main__':
     json_path = 'celebvhq_info.json'  # json file path
-    raw_vid_root = './downloaded_celebvhq/raw/'  # download raw video path
-    processed_vid_root = './downloaded_celebvhq/processed/'  # processed video path
+    raw_vid_root = '/is/cluster/fast/pghosh/datasets/celebV_HQ/raw/'  # download raw video path
+    processed_vid_root = '/is/cluster/fast/pghosh/datasets/celebV_HQ/processed/'  # processed video path
     proxy = None  # proxy url example, set to None if not use
 
     os.makedirs(raw_vid_root, exist_ok=True)
     os.makedirs(processed_vid_root, exist_ok=True)
 
-    for vid_id, save_vid_name, time, bbox in load_data(json_path):
+    data_dict = load_data(json_path)
+    for key, val in tqdm.tqdm(data_dict['clips'].items()):
+        save_name = key + ".mp4"
+        vid_id = val['ytb_id']
+        time = val['duration']['start_sec'], val['duration']['end_sec']
+
+        bbox = [val['bbox']['top'], val['bbox']['bottom'],
+                val['bbox']['left'], val['bbox']['right']]
         raw_vid_path = os.path.join(raw_vid_root, vid_id + ".mp4")
         # Downloading is io bounded and processing is cpu bounded.
         # It is better to download all videos firstly and then process them via mutiple cpu cores.
