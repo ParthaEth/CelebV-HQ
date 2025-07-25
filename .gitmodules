@@ -1,0 +1,3 @@
+[submodule "syncnet_python"]
+	path = syncnet_python
+	url = https://github.com/joonson/syncnet_python.git
